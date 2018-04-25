@@ -16,8 +16,11 @@ import math
 # apple = 3
 # car = 4
 # helicopter = 5
+
+
 class ObjectRecognizer:
     def __init__(self):
+        # type: () -> object
         self.TestingData = []
         self.TrainingData = []
         self.TrainingLabels = []
@@ -63,89 +66,15 @@ class ObjectRecognizer:
             self.TrainingData.append(final_data)
         self.TrainingData = np.array(self.TrainingData, dtype='float64')
         # Reading Testing Data
-        count = 0
         for each in glob(test_path + "*"):
-            if count % 2 == 0:
-                original_path = each
-            else:
-                all, pos = seg.segment(original_path, each)
-                stri = ""
-                for i in each.split('/')[-1]:
-                    if i == ' ':
-                        break
-                    stri += i
-                # cat = 1
-                # laptop = 2
-                # apple = 3
-                # car = 4
-                # helicopter = 5
-                if stri == "T1":
-                    self.TestingData.append(all[0])
-                    self.TestingData.append(all[1])
-                    self.TestingLabels.append(1)
-                    self.TestingLabels.append(2)
-                elif stri == "T2":
-                    self.TestingData.append(all[1])
-                    self.TestingData.append(all[2])
-                    self.TestingLabels.append(1)
-                    self.TestingLabels.append(2)
-                elif stri == "T3":
-                    self.TestingData.append(all[0])
-                    self.TestingData.append(all[1])
-                    self.TestingLabels.append(2)
-                    self.TestingLabels.append(1)
-                elif stri == "T4":
-                    self.TestingData.append(all[0])
-                    self.TestingData.append(all[1])
-                    self.TestingData.append(all[2])
-                    self.TestingLabels.append(4)
-                    self.TestingLabels.append(4)
-                    self.TestingLabels.append(1)
-                elif stri == "T5":
-                    self.TestingData.append(all[0])
-                    self.TestingData.append(all[1])
-                    self.TestingLabels.append(2)
-                    self.TestingLabels.append(3)
-                elif stri == "T6":
-                    self.TestingData.append(all[1])
-                    self.TestingLabels.append(5)
-                elif stri == "T7":
-                    self.TestingData.append(all[0])
-                    self.TestingData.append(all[1])
-                    self.TestingData.append(all[2])
-                    self.TestingLabels.append(5)
-                    self.TestingLabels.append(1)
-                    self.TestingLabels.append(3)
-                elif stri == "T8":
-                    self.TestingData.append(all[0])
-                    self.TestingLabels.append(4)
-                elif stri == "T9":
-                    self.TestingData.append(all[1])
-                    self.TestingLabels.append(3)
-                elif stri == "T10":
-                    self.TestingData.append(all[0])
-                    self.TestingData.append(all[1])
-                    self.TestingLabels.append(4)
-                    self.TestingLabels.append(1)
-                elif stri == "T11":
-                    self.TestingData.append(all[0])
-                    self.TestingLabels.append(1)
-                elif stri == "T12":
-                    self.TestingData.append(all[0])
-                    self.TestingData.append(all[1])
-                    self.TestingLabels.append(2)
-                    self.TestingLabels.append(1)
-                elif stri == "T13":
-                    self.TestingData.append(all[0])
-                    self.TestingData.append(all[1])
-                    self.TestingLabels.append(5)
-                    self.TestingLabels.append(4)
-                elif stri == "T14":
-                    self.TestingData.append(all[0])
-                    self.TestingData.append(all[1])
-                    self.TestingLabels.append(4)
-                    self.TestingLabels.append(4)
-            count += 1
+            word = each.split("/")[-1]
+            for imagefile in glob(test_path + word + "/*"):
+                im = cv.imread(imagefile, 0)
+                im = cv.resize(im, (50, 50))
+                im = np.reshape(im, 2500)
+                self.TestingData.append(im)
+                self.TestingLabels.append(int(word))
+        print("Donee")
         self.TestingData = np.array(self.TestingData, dtype='float64')
 
     def calculate_pca(self):
@@ -159,15 +88,32 @@ class ObjectRecognizer:
         self.TestingData = pca.transform(self.TestingData)
 
     def Run(self):
-        self.Read("/Users/mac/PycharmProjects/NNProject/Training/", "/Users/mac/PycharmProjects/NNProject/Testing/")
+
+        self.Read("/Users/mac/PycharmProjects/NNProject/Training/", "/Users/mac/PycharmProjects/NNProject/TestFiles/")
         self.Normalize()
         self.calculate_pca()
         cv.waitKey(0)
 
+    def split_and_save(self, test_path):
+        count = 0
+        count2 = 0
+        for each in glob(test_path + "*"):
+            if count % 2 == 0:
+                original_path = each
+            else:
+                all, pos = seg.segment(original_path, each)
+                for element in all:
+                    cv.imwrite("/Users/mac/PycharmProjects/NNProject/TestFiles/" + str(count2) + each.split("/")[-1], element)
+                    count2 += 1
+            count += 1
+
+
 class MultiLayerNN:
     def __init__(self, no_layers, no_neu, b, lr, no_ep, af, sc, mse):
+        # type: (object, object, object, object, object, object, object, object) -> object
         # System Variables
         self.Features = ObjectRecognizer()
+        #self.Features.split_and_save("/Users/mac/PycharmProjects/NNProject/Testing/")
         self.Features.Run()
         self.TrainingData = self.Features.TrainingData
         self.TestingData = self.Features.TestingData
@@ -454,11 +400,11 @@ class MultiLayerNN:
         plt.title("Learning Curve")
         plt.show()
 
-class InputForm(QWidget):
 
+class InputForm(QWidget):
     def __init__(self):
-        super().__init__()
-        self.title = 'Multi Layer Neural Networks - Task3'
+        super(InputForm, self).__init__()
+        self.title = 'Neural Networks Project'
         self.left = 10
         self.top = 10
         self.width = 500
