@@ -19,142 +19,22 @@ import math
 # helicopter = 5
 
 
-class ObjectRecognizer:
-    def __init__(self, flag):
-        # type: () -> object
+class MultiLayerNN:
+    def __init__(self, no_layers, no_neu, b, lr, no_ep, af, sc, mse, bool):
+        # System Variables
         self.TestingData = []
         self.CrossData = []
         self.TrainingData = []
         self.TrainingLabels = []
         self.TestingLabels = []
         self.CrossLabels = []
-        self.CrossBool = flag
-
-    def Normalize(self):
-        # Standardizing the features
-        self.TrainingData = StandardScaler().fit_transform(self.TrainingData)
-        self.TestingData = StandardScaler().fit_transform(self.TestingData)
-        if self.CrossBool == 1:
-            self.CrossData = StandardScaler().fit_transform(self.CrossData)
-        #for i in range(0, 2500):
-        #    mean = np.mean(self.TrainingData[:, i])
-        #    max = np.max(self.TrainingData[:, i])
-        #    self.TrainingData[:, i] -= mean
-        #    self.TrainingData[:, i] /= max
-
-    def Read(self, train_path, test_path):
-        # Reading Training Dat
-        count = 0
-        for each in glob(train_path + "*"):
-            take = False
-            st = ""
-            for ch in each:
-                if ch == ' ' and st != "":
-                    break
-                if ch == '.':
-                    break
-                if take and ch != ' ':
-                    st += ch
-                if ch == '-':
-                    take = True
-            im = cv.imread(each, 0)
-            im = cv.resize(im, (50, 50))
-            final_data = np.reshape(im, 2500)
-            if self.CrossBool == 1 and (count == 0 or count == 1 or count == 2 or count == 3 or count == 4):
-                self.CrossData.append(final_data)
-                if st == "Cat":
-                    self.CrossLabels.append(1)
-                elif st == "Laptop":
-                    self.CrossLabels.append(2)
-                elif st == "Apple":
-                    self.CrossLabels.append(3)
-                elif st == "Car":
-                    self.CrossLabels.append(4)
-                elif st == "Helicopter":
-                    self.CrossLabels.append(5)
-            else:
-                self.TrainingData.append(final_data)
-                if st == "Cat":
-                    self.TrainingLabels.append(1)
-                elif st == "Laptop":
-                    self.TrainingLabels.append(2)
-                elif st == "Apple":
-                    self.TrainingLabels.append(3)
-                elif st == "Car":
-                    self.TrainingLabels.append(4)
-                elif st == "Helicopter":
-                    self.TrainingLabels.append(5)
-            count += 1
-        self.TrainingData = np.array(self.TrainingData, dtype='float64')
-        if self.CrossBool == 1:
-            self.CrossData = np.array(self.CrossData, dtype='float64')
-        # Reading Testing Data
-        for each in glob(test_path + "*"):
-            word = each.split("/")[-1]
-            for imagefile in glob(test_path + word + "/*"):
-                im = cv.imread(imagefile, 0)
-                im = cv.resize(im, (50, 50))
-                im = np.reshape(im, 2500)
-                self.TestingData.append(im)
-                self.TestingLabels.append(int(word))
-        print("Donee")
-        self.TestingData = np.array(self.TestingData, dtype='float64')
-
-    def calculate_pca(self):
-        pca = PCA(25)
-        pca.fit(self.TrainingData)
-        plt.plot(np.cumsum(pca.explained_variance_ratio_))
-        plt.xlabel('number of components')
-        plt.ylabel('cumulative explained variance')
-        plt.show()
-        self.TrainingData = pca.transform(self.TrainingData)
-        self.TestingData = pca.transform(self.TestingData)
-        np.savetxt("TrainData", self.TrainingData, delimiter=',', fmt='%f')
-        np.savetxt("TestData", self.TestingData, delimiter=',', fmt='%f')
-        np.savetxt("Train_labels",self.TrainingLabels,delimiter=',',fmt='%f')
-        np.savetxt("Test_labels",self.TestingLabels,delimiter=',',fmt='%f')
-
-        if self.CrossBool == 1:
-            self.CrossData = pca.transform(self.CrossData)
-
-    def Run(self):
-        self.Read("/Users/mac/PycharmProjects/NNProject/Training/", "/Users/mac/PycharmProjects/NNProject/TestFiles/")
-        self.Normalize()
-        self.calculate_pca()
-        cv.waitKey(0)
-
-    def split_and_save(self, test_path):
-        count = 0
-        count2 = 0
-        for each in glob(test_path + "*"):
-            if count % 2 == 0:
-                original_path = each
-            else:
-                all, pos = seg.segment(original_path, each)
-                for element in all:
-                    cv.imwrite("/Users/mac/PycharmProjects/NNProject/TestFiles/" + str(count2) + each.split("/")[-1], element)
-                    count2 += 1
-            count += 1
-
-
-class MultiLayerNN:
-    def __init__(self, no_layers, no_neu, b, lr, no_ep, af, sc, mse,bool):
-        # type: (object, object, object, object, object, object, object, object) -> object
-        # System Variables
-        self.Features = ObjectRecognizer(bool)
-        #self.Features.split_and_save("/Users/mac/PycharmProjects/NNProject/Testing/")
-        self.Features.Run()
-        self.TrainingData = self.Features.TrainingData
-        self.TestingData = self.Features.TestingData
-        self.TestingLabels = self.Features.TestingLabels
-        self.TrainingLabels = self.Features.TrainingLabels
-        self.CrossData = self.Features.CrossData
-        self.CrossLabels = self.Features.CrossLabels
-        self.bool = bool
+        self.CrossBool = bool
         self.bias = int(b)
         self.NumberOfLayers = int(no_layers)
+        self.no_epochs = 0
         x = no_neu.split(',')
         z = []
+        # fill the neurons number at each layer
         for i in x:
             z.append(int(i))
         arr = np.array(z)
@@ -168,20 +48,18 @@ class MultiLayerNN:
                 self.NumberOfNeurons[i] = arr[i]
                 self.MaxNeuron = max(self.MaxNeuron, arr[i])
         else:
+            print("Please enter correct number of neurons per layer");
             return
         self.learning_rate = float(lr)
         self.ActivationFunction = af
         self.StoppingCondition = sc
         if sc == "Fix The Number Of Epochs":
             self.no_epochs = int(no_ep)
-        self.no_epochs = 0
-        if sc == "MSE":
+        elif sc == "MSE":
             self.MSEThreshold = float(mse)
-        if bool:
-            self.InputLayer = 20
+        if self.CrossBool == 1:
             self.NumberOfFeatures = 20
         else:
-            self.InputLayer = 25
             self.NumberOfFeatures = 25
         self.NumberOfClasses = 5
         self.Weights = np.zeros((self.NumberOfLayers + 1, max(self.MaxNeuron, self.NumberOfFeatures), max(self.MaxNeuron, self.NumberOfFeatures)))
@@ -194,9 +72,26 @@ class MultiLayerNN:
         self.OutError4 = np.zeros((25, 1))
         self.OutError5 = np.zeros((25, 1))
         self.Epochs = []
+        self.Start()
+
+    def Start(self):
+        # Start Read the images
+        self.Read("/Users/mac/PycharmProjects/NNProject/Training/", "/Users/mac/PycharmProjects/NNProject/TestFiles/")
+        # Normalize the Image data set
+        self.Normalize()
+        # Calculate PCA Number
+        self.calculate_pca()
+        # initialize the weight matrix and bias list vector
         self.initialize()
-        self.train()
-        self.Run()
+        # Train The Network
+        # self.train()
+        # Save the weights into file
+        # self.WriteWeightAndBias()
+        # Reading Weights and Bias
+        self.ReadWeightAndBias()
+        # Testing phase
+        self.TestData()
+        cv.waitKey(0)
 
     def initialize(self):
         np.random.seed(0)
@@ -214,7 +109,7 @@ class MultiLayerNN:
             return (1 - math.exp(vnet * -1)) / (1 + math.exp(vnet * -1))
 
     def train(self):
-        preAcc = 0
+        preAcc = -1
         Epoch_Number = 0
         OK = True
         while OK:
@@ -226,7 +121,7 @@ class MultiLayerNN:
                     if Level == 0:
                         Weight = self.Weights[Level]
                         for NeuronIndx in range(0, self.NumberOfNeurons[Level]):
-                            Vnet = np.sum(Weight[NeuronIndx, 0:self.InputLayer] * X) + self.biasList[Level] * self.bias
+                            Vnet = np.sum(Weight[NeuronIndx, 0:self.NumberOfFeatures] * X) + self.biasList[Level] * self.bias
                             self.Out[Level, NeuronIndx] = self.ActFunction(Vnet)
 
                     elif Level == self.NumberOfLayers:
@@ -320,7 +215,7 @@ class MultiLayerNN:
                             self.learning_rate * self.Error[Level, 0:5] * self.bias)
                     elif Level == 0:
                         weight = self.Weights[Level]
-                        for NeuronIndx in range(0, self.InputLayer):
+                        for NeuronIndx in range(0, self.NumberOfFeatures):
                             X = self.TrainingData[index]
                             NTemp = weight[0:self.NumberOfNeurons[Level], NeuronIndx] + self.learning_rate * self.Error[
                                                                                                              Level, 0:
@@ -355,31 +250,46 @@ class MultiLayerNN:
             MSE3 = 0.5 * np.mean((self.OutError3 ** 2))
             MSE4 = 0.5 * np.mean((self.OutError4 ** 2))
             MSE5 = 0.5 * np.mean((self.OutError5 ** 2))
-
             TotalMSE = (MSE1 + MSE2 + MSE3 + MSE4 + MSE5)/5
-            print(TotalMSE)
             self.Epochs.append(TotalMSE)
-            if self.StoppingCondition == "Cross Validation" and (Epoch_Number+1) % 50 == 0:
-                if preAcc == 100:
-                    preAcc = self.CrossTest()
-                else:
-                    Acc = self.CrossTest()
-                if preAcc < Acc:
-                    print("Early stopping !!")
-                    break
-
+            if self.StoppingCondition == "Cross Validation":
+                if (Epoch_Number+1) % 50 == 0:
+                    print(preAcc)
+                    if preAcc == -1:
+                        preAcc = self.CrossTest()
+                    else:
+                        Acc = self.CrossTest()
+                        if preAcc > Acc:
+                            print("Early stopping !!")
+                            break
+                        preAcc = Acc
             elif self.StoppingCondition == "MSE":
+                print(TotalMSE)
                 if TotalMSE <= self.MSEThreshold:
                     break
             else:
                 if Epoch_Number == self.no_epochs - 1:
                     break
-
             Epoch_Number += 1
+        self.WriteWeightAndBias()
 
-    def confusion(self, predicted, real):
+    def WriteWeightAndBias(self):
+        with open('Weights.txt', 'w') as outfile:
+            for data_slice in self.Weights:
+                np.savetxt(outfile, data_slice, fmt='%-7.2f')
+        with open('Bias.txt', 'w') as outfile:
+            for data_slice in self.biasList:
+                np.savetxt(outfile, data_slice, fmt='%-7.2f')
+
+    def ReadWeightAndBias(self):
+        self.Weights = np.loadtxt('Weights.txt')
+        self.Weights = self.Weights.reshape((self.NumberOfLayers + 1, max(self.MaxNeuron, self.NumberOfFeatures), max(self.MaxNeuron, self.NumberOfFeatures)))
+        self.biasList = np.loadtxt('Bias.txt')
+        self.biasList = self.biasList.reshape((self.NumberOfLayers + 1, 1))
+
+    @staticmethod
+    def confusion(predicted, real):
         con = confusion_matrix(real, predicted)
-        print(con)
         acc = 0
         for i in range(5):
             acc += con[i, i]
@@ -391,7 +301,7 @@ class MultiLayerNN:
             if Level == 0:
                 Weight = self.Weights[Level]
                 for NeuronIndx in range(0, self.NumberOfNeurons[Level]):
-                    Vnet = np.sum(Weight[NeuronIndx, 0:self.InputLayer] * X) + self.biasList[Level] * self.bias
+                    Vnet = np.sum(Weight[NeuronIndx, 0:self.NumberOfFeatures] * X) + self.biasList[Level] * self.bias
                     self.Out[Level, NeuronIndx] = self.ActFunction(Vnet)
 
             elif Level == self.NumberOfLayers:
@@ -431,10 +341,9 @@ class MultiLayerNN:
                         Level] * self.bias
                     self.Out[Level, NeuronIndx] = self.ActFunction(Vnet)
 
-    def Run(self):
-        print("Training is finished")
+    def TestData(self):
+        print("Testing is Starting.....")
         predicted = []
-
         for i in range(0, self.TestingData.shape[0]):
             predicted.append(self.test(self.TestingData[i]))
         pre = np.array(predicted)
@@ -452,10 +361,110 @@ class MultiLayerNN:
         plt.show()
 
     def CrossTest(self):
+        predicted = []
         for i in range(0, self.CrossData.shape[0]):
             predicted.append(self.test(self.CrossData[i]))
         pre = np.array(predicted)
-        return confusion(pre, self.CrossLabels)
+        return self.confusion(pre, self.CrossLabels)
+
+    def Normalize(self):
+        # Standardizing the features
+        self.TrainingData = StandardScaler().fit_transform(self.TrainingData)
+        self.TestingData = StandardScaler().fit_transform(self.TestingData)
+        if self.CrossBool == 1:
+            self.CrossData = StandardScaler().fit_transform(self.CrossData)
+        #for i in range(0, 2500):
+        #    mean = np.mean(self.TrainingData[:, i])
+        #    max = np.max(self.TrainingData[:, i])
+        #    self.TrainingData[:, i] -= mean
+        #    self.TrainingData[:, i] /= max
+
+    def Read(self, train_path, test_path):
+        # Reading Training Dat
+        count = 0
+        for each in glob(train_path + "*"):
+            take = False
+            st = ""
+            for ch in each:
+                if ch == ' ' and st != "":
+                    break
+                if ch == '.':
+                    break
+                if take and ch != ' ':
+                    st += ch
+                if ch == '-':
+                    take = True
+            im = cv.imread(each, 0)
+            im = cv.resize(im, (50, 50))
+            final_data = np.reshape(im, 2500)
+            if self.CrossBool == 1 and (count == 0 or count == 1 or count == 6 or count == 8 or count == 17):
+                self.CrossData.append(final_data)
+                if st == "Cat":
+                    self.CrossLabels.append(1)
+                elif st == "Laptop":
+                    self.CrossLabels.append(2)
+                elif st == "Apple":
+                    self.CrossLabels.append(3)
+                elif st == "Car":
+                    self.CrossLabels.append(4)
+                elif st == "Helicopter":
+                    self.CrossLabels.append(5)
+            else:
+                self.TrainingData.append(final_data)
+                if st == "Cat":
+                    self.TrainingLabels.append(1)
+                elif st == "Laptop":
+                    self.TrainingLabels.append(2)
+                elif st == "Apple":
+                    self.TrainingLabels.append(3)
+                elif st == "Car":
+                    self.TrainingLabels.append(4)
+                elif st == "Helicopter":
+                    self.TrainingLabels.append(5)
+            count += 1
+        self.TrainingData = np.array(self.TrainingData, dtype='float64')
+        if self.CrossBool == 1:
+            self.CrossData = np.array(self.CrossData, dtype='float64')
+        # Reading Testing Data
+        for each in glob(test_path + "*"):
+            word = each.split("/")[-1]
+            for imagefile in glob(test_path + word + "/*"):
+                im = cv.imread(imagefile, 0)
+                im = cv.resize(im, (50, 50))
+                im = np.reshape(im, 2500)
+                self.TestingData.append(im)
+                self.TestingLabels.append(int(word))
+        self.TestingData = np.array(self.TestingData, dtype='float64')
+
+    def calculate_pca(self):
+        if self.CrossBool == 1:
+            pca = PCA(20)
+        else:
+            pca = PCA(25)
+        pca.fit(self.TrainingData)
+        plt.plot(np.cumsum(pca.explained_variance_ratio_))
+        plt.xlabel('number of components')
+        plt.ylabel('cumulative explained variance')
+        plt.show()
+        self.TrainingData = pca.transform(self.TrainingData)
+        self.TestingData = pca.transform(self.TestingData)
+        if self.CrossBool == 1:
+            self.CrossData = pca.transform(self.CrossData)
+
+    @staticmethod
+    def split_and_save(test_path):
+        count = 0
+        count2 = 0
+        for each in glob(test_path + "*"):
+            if count % 2 == 0:
+                original_path = each
+            else:
+                all, pos = seg.segment(original_path, each)
+                for element in all:
+                    cv.imwrite("/Users/mac/PycharmProjects/NNProject/TestFiles/" + str(count2) + each.split("/")[-1],
+                               element)
+                    count2 += 1
+            count += 1
 
 
 class InputForm(QWidget):
