@@ -282,7 +282,7 @@ class RBF :
         def save_Cenroids(self):
             with open('Centroids.txt', 'w') as outfile:
                 for data_slice in self.hidden_neurons:
-                    np.savetxt(outfile, data_slice, fmt='%-7.2f')
+                    np.savetxt(outfile, data_slice, fmt='%-7.5f')
 
 
         def ReadWeight(self):
@@ -296,6 +296,5 @@ class RBF :
 
 if __name__=='__main__':
     rbf_obj=RBF(22)
-    #rbf_obj.testt()
-    #rbf_obj.train()
+    rbf_obj.train()
     rbf_obj.test()
