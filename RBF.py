@@ -5,7 +5,7 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import confusion_matrix
 
 class RBF :
-        def __init__(self,k,epochs=400):
+        def __init__(self,k,epochs=200):
 
             self.epochs=epochs
             self.k=k
@@ -158,7 +158,7 @@ class RBF :
                 #print(cc)
                 centroids = copy.deepcopy(New_centroids)
 
-        def train(self,learn_rate=0.03,mse_thresh=0.01):
+        def train(self,learn_rate=0.09,mse_thresh=0.01):
 
          epoches=self.epochs
          epoch_list = np.zeros([epoches, 1])
@@ -275,7 +275,7 @@ class RBF :
 
 
 if __name__=='__main__':
-    rbf_obj=RBF(17)
+    rbf_obj=RBF(22)
     #rbf_obj.testt()
     rbf_obj.train()
     rbf_obj.test()
