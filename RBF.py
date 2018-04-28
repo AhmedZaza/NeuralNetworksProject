@@ -19,7 +19,7 @@ class RBF :
             self.Weight_out=np.zeros([5,k])                      # 2nd level of weights //
 
             self.hidden_neurons=self.kmean(k,self.TrainData) # initiate hidden neurons k* num of samples
-            kmeans = KMeans(n_clusters=17, random_state=0).fit(self.TrainData)
+            kmeans = KMeans(n_clusters=22, random_state=0).fit(self.TrainData)
             #self.hidden_neurons=kmeans.cluster_centers_
             #print(kmeans.cluster_centers_)
 
@@ -233,12 +233,19 @@ class RBF :
              epoch_list[e] = e
              if TotalMSE <= mse_thresh:
                  break
-
+         self.save_Weight()
+         self.save_Cenroids()
          return epoch_list
 
         def test(self):
-            y = np.zeros([len(self.TestData), 1])
 
+            self.k=22
+            self.ReadWeight()
+
+            self.ReadCenroids()
+            self.init_sigma()
+
+            y = np.zeros([len(self.TestData), 1])
             for i in range(0,len(self.TestData)):
                 X=self.TestData
                 cur_hidden_Gaussian = self.calc_Gaussian(X,i)
@@ -267,15 +274,28 @@ class RBF :
             mydata = np.genfromtxt("IrisDataset.txt", delimiter=",")
             #print(mydata)
             self.my_data=mydata
-        def testt(self):
-            lisst=np.array([1,2,3])
 
-            mse =(lisst ** 2)
-            print (mse)
+        def save_Weight(self):
+            with open('RBF_Weights.txt', 'w') as outfile:
+                for data_slice in self.Weight_out:
+                    np.savetxt(outfile, data_slice, fmt='%-7.10f')
+        def save_Cenroids(self):
+            with open('Centroids.txt', 'w') as outfile:
+                for data_slice in self.hidden_neurons:
+                    np.savetxt(outfile, data_slice, fmt='%-7.2f')
+
+
+        def ReadWeight(self):
+            self.Weight_out = np.loadtxt('RBF_Weights.txt')
+            self.Weight_out = self.Weight_out.reshape(5,self.k)
+        def ReadCenroids(self):
+            self.hidden_neurons = np.loadtxt('Centroids.txt')
+            ## k=22
+            self.hidden_neurons = self.hidden_neurons.reshape(22, 25)
 
 
 if __name__=='__main__':
     rbf_obj=RBF(22)
     #rbf_obj.testt()
-    rbf_obj.train()
+    #rbf_obj.train()
     rbf_obj.test()
