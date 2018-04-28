@@ -45,10 +45,10 @@ class RBF :
             acc += con[i, i]
          return (acc / len(real)) * 100
 
-        def calc_Gaussian(self,X,iteration): # guess WRONG ??????????????????
+        def calc_Gaussian(self,sample): # guess WRONG ??????????????????
             tmp_hidden_Gaussian=np.zeros([self.k])
             for i in range(self.k): # k
-                tmp_hidden_Gaussian[i]=math.exp(-(self.Euclidean_dis(X[iteration],self.hidden_neurons[i])**2)/(2* self.sigma**2))
+                tmp_hidden_Gaussian[i]=math.exp(-(self.Euclidean_dis(sample,self.hidden_neurons[i])**2)/(2* self.sigma**2))
 
             return tmp_hidden_Gaussian
 
@@ -167,8 +167,8 @@ class RBF :
              #print(self.Weight_out)
              for i in range(len(self.TrainData)): # iterate over samples
                  # net = w * φ T
-                 X=self.TrainData
-                 cur_hidden_Gaussian = self.calc_Gaussian(X,i)
+                 X=self.TrainData[i]
+                 cur_hidden_Gaussian = self.calc_Gaussian(X)
                  #print(cur_hidden_Gaussian.shape)
                  #print(self.Weight_out[0, 0:self.k].shape)
 
@@ -247,8 +247,8 @@ class RBF :
 
             y = np.zeros([len(self.TestData), 1])
             for i in range(0,len(self.TestData)):
-                X=self.TestData
-                cur_hidden_Gaussian = self.calc_Gaussian(X,i)
+                X=self.TestData[i]
+                cur_hidden_Gaussian = self.calc_Gaussian(X)
                 vnet1 = np.sum(self.Weight_out[0, 0:self.k] * cur_hidden_Gaussian)
                 vnet2 = np.sum(self.Weight_out[1, 0:self.k] * cur_hidden_Gaussian)
                 vnet3 = np.sum(self.Weight_out[2, 0:self.k] * cur_hidden_Gaussian)
@@ -269,6 +269,32 @@ class RBF :
             print("test accuarcy is   ", self.confusion(y,d))
 
             return
+
+        def test_sample(self,X):
+
+            self.k=22
+            self.ReadWeight()
+
+            self.ReadCenroids()
+            self.init_sigma()
+            cur_hidden_Gaussian = self.calc_Gaussian(X)
+            vnet1 = np.sum(self.Weight_out[0, 0:self.k] * cur_hidden_Gaussian)
+            vnet2 = np.sum(self.Weight_out[1, 0:self.k] * cur_hidden_Gaussian)
+            vnet3 = np.sum(self.Weight_out[2, 0:self.k] * cur_hidden_Gaussian)
+            vnet4 = np.sum(self.Weight_out[3, 0:self.k] * cur_hidden_Gaussian)
+            vnet5 = np.sum(self.Weight_out[4, 0:self.k] * cur_hidden_Gaussian)
+            if vnet1 > vnet2 and vnet1 > vnet3 and vnet1 > vnet4 and vnet1 > vnet5:
+                label= 1
+            elif vnet2 > vnet1 and vnet2 > vnet3 and vnet2 > vnet4 and vnet2 > vnet5:
+                label = 2
+            elif vnet3 > vnet1 and vnet3 > vnet2 and vnet3 > vnet4 and vnet3 > vnet5:
+                label = 3
+            elif vnet4 > vnet1 and vnet4 > vnet3 and vnet4 > vnet2 and vnet4 > vnet5:
+                label = 4
+            else:
+                label = 5
+            return label
+
 
         def load_data(self):
             mydata = np.genfromtxt("IrisDataset.txt", delimiter=",")
@@ -296,5 +322,5 @@ class RBF :
 
 if __name__=='__main__':
     rbf_obj=RBF(22)
-    rbf_obj.train()
+    #rbf_obj.train()
     rbf_obj.test()
