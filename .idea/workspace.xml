@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="e2e197b9-7dbe-4bb6-b566-82a07647b6d6" name="Default" comment="semi GUI">
-      <change beforePath="" afterPath="$PROJECT_DIR$/GUI.py" />
+    <list default="true" id="e2e197b9-7dbe-4bb6-b566-82a07647b6d6" name="Default" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change beforePath="$PROJECT_DIR$/RBF.py" afterPath="$PROJECT_DIR$/RBF.py" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -338,7 +336,14 @@
       <option name="project" value="LOCAL" />
       <updated>1524898904658</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="semi GUI">
+      <created>1524946521118</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1524946521118</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -399,7 +404,8 @@
     <MESSAGE value="65 % accuracy&#10;22 neurons @ hidden layer&#10;eta 0.09" />
     <MESSAGE value="SAVE weights &amp; centroids &#10;NOTE k must be 22 to use these centroids" />
     <MESSAGE value="more Accurate Save" />
-    <option name="LAST_COMMIT_MESSAGE" value="more Accurate Save" />
+    <MESSAGE value="semi GUI" />
+    <option name="LAST_COMMIT_MESSAGE" value="semi GUI" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
