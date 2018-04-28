@@ -5,11 +5,11 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import confusion_matrix
 
 class RBF :
-        def __init__(self,k,epochs=200):
+        def __init__(self,k,epochs=400):
 
             self.epochs=epochs
             self.k=k
-            self.load_data()
+            #self.load_data()
             self.TrainData= np.genfromtxt("TrainData.txt", delimiter=",")
             self.Train_labels=np.genfromtxt("Train_labels.txt",delimiter=",")
 
@@ -17,6 +17,7 @@ class RBF :
             self.Test_labels=np.genfromtxt("Test_labels.txt",delimiter=',')
 
             self.Weight_out=np.zeros([5,k])                      # 2nd level of weights //
+
             self.hidden_neurons=self.kmean(k,self.TrainData) # initiate hidden neurons k* num of samples
             kmeans = KMeans(n_clusters=17, random_state=0).fit(self.TrainData)
             #self.hidden_neurons=kmeans.cluster_centers_
@@ -47,7 +48,7 @@ class RBF :
         def calc_Gaussian(self,X,iteration): # guess WRONG ??????????????????
             tmp_hidden_Gaussian=np.zeros([self.k])
             for i in range(self.k): # k
-                tmp_hidden_Gaussian[i]=math.exp(-self.Euclidean_dis(X[iteration],self.hidden_neurons[i])**2/(2* self.sigma))
+                tmp_hidden_Gaussian[i]=math.exp(-(self.Euclidean_dis(X[iteration],self.hidden_neurons[i])**2)/(2* self.sigma**2))
 
             return tmp_hidden_Gaussian
 
@@ -71,7 +72,6 @@ class RBF :
             #Max_dis => max distance between any 2 centroids
             max=-100000000000
             for i in range (len(self.hidden_neurons)):
-                max = -100000000000
                 for j in range(i+1,len(self.hidden_neurons)):
                     cur_dist=self.Euclidean_dis(self.hidden_neurons[i],self.hidden_neurons[j])
                     if(cur_dist>max):
@@ -158,15 +158,13 @@ class RBF :
                 #print(cc)
                 centroids = copy.deepcopy(New_centroids)
 
-        def train(self,learn_rate=0.03,mse_thresh=0.001):
+        def train(self,learn_rate=0.03,mse_thresh=0.01):
 
          epoches=self.epochs
          epoch_list = np.zeros([epoches, 1])
 
          for e in range(epoches):
              #print(self.Weight_out)
-
-
              for i in range(len(self.TrainData)): # iterate over samples
                  # net = w * φ T
                  X=self.TrainData
@@ -260,7 +258,7 @@ class RBF :
                 else:
                     y[i]= 5
             d=self.Test_labels
-            print(y)
+            #print(y)
             print("test accuarcy is   ", self.confusion(y,d))
 
             return
