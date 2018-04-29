@@ -11,6 +11,8 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from sklearn.metrics import confusion_matrix
 import math
+import copy
+from sklearn.cluster import KMeans
 
 # cat = 1
 # laptop = 2
@@ -18,9 +20,331 @@ import math
 # car = 4
 # helicopter = 5
 
+# best  k = 22
+# best epochs = 200
+
+
+class RBF:
+    def __init__(self, k, epochs):
+        self.epochs = epochs
+        self.k = k
+        # self.load_data()
+        self.TrainData = np.genfromtxt("TrainData.txt", delimiter=",")
+        self.Train_labels = np.genfromtxt("Train_labels.txt", delimiter=",")
+
+        self.TestData = np.genfromtxt("TestData.txt", delimiter=',')
+        self.Test_labels = np.genfromtxt("Test_labels.txt", delimiter=',')
+
+        self.Weight_out = np.zeros([5, k])  # 2nd level of weights //
+
+        self.hidden_neurons = self.kmean(k, self.TrainData)  # initiate hidden neurons k* num of samples
+        kmeans = KMeans(n_clusters=22, random_state=0).fit(self.TrainData)
+        # self.hidden_neurons=kmeans.cluster_centers_
+        # print(kmeans.cluster_centers_)
+
+        # = k*25
+
+        self.hidden_Gaussian = np.zeros(k)
+        self.init_sigma()
+        self.init_weights()
+        self.OutError1 = np.zeros((25, 1))
+        self.OutError2 = np.zeros((25, 1))
+        self.OutError3 = np.zeros((25, 1))
+        self.OutError4 = np.zeros((25, 1))
+        self.OutError5 = np.zeros((25, 1))
+
+        # [0, 0: self.NumberOfNeurons[Level - 1]]
+
+    def confusion(self, pred, real):
+        con = confusion_matrix(real, pred)
+        print(con)
+        acc = 0
+        for i in range(5):
+            acc += con[i, i]
+        return (acc / len(real)) * 100
+
+    def calc_Gaussian(self, sample):  # guess WRONG ??????????????????
+        tmp_hidden_Gaussian = np.zeros([self.k])
+        for i in range(self.k):  # k
+            tmp_hidden_Gaussian[i] = math.exp(
+                -(self.Euclidean_dis(sample, self.hidden_neurons[i]) ** 2) / (2 * self.sigma ** 2))
+
+        return tmp_hidden_Gaussian
+
+    def init_weights(self):
+        # out level
+        np.random.seed(0)
+        for i in range(5):
+            for j in range(self.k):
+                self.Weight_out[i][j] = np.random.uniform(-1, 1)
+
+    def Euclidean_dis(self, first, second):
+        dis = 0
+        for i in range(len(first)):  # number of features
+            dis += (first[i] - second[i]) * (first[i] - second[i])
+        dis = math.sqrt(dis)
+        return dis
+
+    def init_sigma(self):  # ?
+        Max_dis = 1
+        # Max_dis => max distance between any 2 centroids
+        max = -100000000000
+        for i in range(len(self.hidden_neurons)):
+            for j in range(i + 1, len(self.hidden_neurons)):
+                cur_dist = self.Euclidean_dis(self.hidden_neurons[i], self.hidden_neurons[j])
+                if cur_dist > max:
+                    max = cur_dist
+        Max_dis = max
+        self.sigma = Max_dis / math.sqrt(2 * self.k)
+
+    def kmean(self, k, data_set):
+        # comment this and add h ,w dimensions
+
+        w = len(data_set[0])  # number of features
+        h = len(data_set)  # number of data
+        # print(len(data_set))
+
+        self.Matrix = data_set
+        # print("===============")
+        centroids = []
+        # intalize empty adjancy lists
+        for i in range(k):
+            tmp_list = []
+            centroids.append(tmp_list)
+
+        for i in range(k):
+            for j in range(w):
+                centroids[i].append(self.Matrix[i][j])
+
+        # print(centroids)
+
+        New_centroids = copy.deepcopy(centroids)
+        cc = 0
+        while (1):
+
+            classes = []
+            classes.clear()
+            # intalize empty adjancy lists
+            for i in range(k):
+                tmp_list = []
+                classes.append(tmp_list)
+
+            for i in range(h):  # iterate over the data
+                min = 1000000
+                assigned_cluster = 0  # assume it's always belong to thr 1st cluster
+                for j in range(k):  # iterate over k classes
+                    Euclidean = 0
+                    for l in range(w):
+                        Euclidean += (self.Matrix[i][l] - centroids[j][l]) * (
+                                self.Matrix[i][l] - centroids[j][l])
+
+                    Euclidean = math.sqrt(Euclidean);
+                    if (Euclidean < min):
+                        min = Euclidean
+                        assigned_cluster = j
+                # print(assigned_cluster)
+                classes[assigned_cluster].append(i)
+
+            # print(classes,end='')
+            # calculating  new centroid of each class
+            # print(centroids)
+
+            for i in range(k):
+                for o in range(w):
+                    avg = 0
+                    for j in range(len(classes[i])):
+                        avg += self.Matrix[classes[i][j]][o]
+                    New_centroids[i][o] = avg / len(classes[i])
+
+            # print(centroids)
+            # print(New_centroids)
+            # check for the stopping condition
+            cnt = 0
+            cnt2 = 0
+            for i in range(k):
+                cnt = 0
+                for j in range(w):
+                    if (New_centroids[i][j] - centroids[i][j] <= 0.0):
+                        cnt += 1;
+                if (cnt == w):
+                    cnt2 += 1;
+            if cnt2 == k:
+                # print(New_centroids)
+                return New_centroids
+                break
+            cc += 1
+            # print(cc)
+            centroids = copy.deepcopy(New_centroids)
+
+    def train(self, learn_rate=0.09, mse_thresh=0.01):
+
+        epoches = self.epochs
+        epoch_list = np.zeros([epoches, 1])
+
+        for e in range(epoches):
+            # print(self.Weight_out)
+            for i in range(len(self.TrainData)):  # iterate over samples
+                # net = w * φ T
+                X = self.TrainData[i]
+                cur_hidden_Gaussian = self.calc_Gaussian(X)
+                # print(cur_hidden_Gaussian.shape)
+                # print(self.Weight_out[0, 0:self.k].shape)
+
+                vnet1 = np.sum(self.Weight_out[0, 0:self.k] * cur_hidden_Gaussian)
+                vnet2 = np.sum(self.Weight_out[1, 0:self.k] * cur_hidden_Gaussian)
+                vnet3 = np.sum(self.Weight_out[2, 0:self.k] * cur_hidden_Gaussian)
+                vnet4 = np.sum(self.Weight_out[3, 0:self.k] * cur_hidden_Gaussian)
+                vnet5 = np.sum(self.Weight_out[4, 0:self.k] * cur_hidden_Gaussian)
+
+                D = self.Train_labels[i]
+
+                if D == 1:
+                    D1 = 1
+                    D2 = 0
+                    D3 = 0
+                    D4 = 0
+                    D5 = 0
+                elif D == 2:
+                    D1 = 0
+                    D2 = 1
+                    D3 = 0
+                    D4 = 0
+                    D5 = 0
+                elif D == 3:
+                    D1 = 0
+                    D2 = 0
+                    D3 = 1
+                    D4 = 0
+                    D5 = 0
+                elif D == 4:
+                    D1 = 0
+                    D2 = 0
+                    D3 = 0
+                    D4 = 1
+                    D5 = 0
+                elif D == 5:
+                    D1 = 0
+                    D2 = 0
+                    D3 = 0
+                    D4 = 0
+                    D5 = 1
+                # calc errors
+                self.OutError1[i] = (D1 - vnet1)
+                self.OutError2[i] = (D2 - vnet2)
+                self.OutError3[i] = (D3 - vnet3)
+                self.OutError4[i] = (D4 - vnet4)
+                self.OutError5[i] = (D5 - vnet5)
+                # update weights
+                self.Weight_out[0, 0:self.k] = self.Weight_out[0, 0:self.k] + self.OutError1[
+                    i] * learn_rate * cur_hidden_Gaussian
+                self.Weight_out[1, 0:self.k] = self.Weight_out[1, 0:self.k] + self.OutError2[
+                    i] * learn_rate * cur_hidden_Gaussian
+                self.Weight_out[2, 0:self.k] = self.Weight_out[2, 0:self.k] + self.OutError3[
+                    i] * learn_rate * cur_hidden_Gaussian
+                self.Weight_out[3, 0:self.k] = self.Weight_out[3, 0:self.k] + self.OutError4[
+                    i] * learn_rate * cur_hidden_Gaussian
+                self.Weight_out[4, 0:self.k] = self.Weight_out[4, 0:self.k] + self.OutError5[
+                    i] * learn_rate * cur_hidden_Gaussian
+                # print (self.Weight_out)
+            MSE1 = 0.5 * np.mean((self.OutError1 ** 2))
+            MSE2 = 0.5 * np.mean((self.OutError2 ** 2))
+            MSE3 = 0.5 * np.mean((self.OutError3 ** 2))
+            MSE4 = 0.5 * np.mean((self.OutError4 ** 2))
+            MSE5 = 0.5 * np.mean((self.OutError5 ** 2))
+            TotalMSE = (MSE1 + MSE2 + MSE3 + MSE4 + MSE5) / 5
+            print("epoch", str(e) + "---", TotalMSE)
+            epoch_list[e] = e
+            if TotalMSE <= mse_thresh:
+                break
+        self.save_Weight()
+        self.save_Cenroids()
+        return epoch_list
+
+    def test(self):
+
+        self.k = 22
+        self.ReadWeight()
+
+        self.ReadCenroids()
+        self.init_sigma()
+
+        y = np.zeros([len(self.TestData), 1])
+        for i in range(0, len(self.TestData)):
+            X = self.TestData[i]
+            cur_hidden_Gaussian = self.calc_Gaussian(X)
+            vnet1 = np.sum(self.Weight_out[0, 0:self.k] * cur_hidden_Gaussian)
+            vnet2 = np.sum(self.Weight_out[1, 0:self.k] * cur_hidden_Gaussian)
+            vnet3 = np.sum(self.Weight_out[2, 0:self.k] * cur_hidden_Gaussian)
+            vnet4 = np.sum(self.Weight_out[3, 0:self.k] * cur_hidden_Gaussian)
+            vnet5 = np.sum(self.Weight_out[4, 0:self.k] * cur_hidden_Gaussian)
+            if vnet1 > vnet2 and vnet1 > vnet3 and vnet1 > vnet4 and vnet1 > vnet5:
+                y[i] = 1
+            elif vnet2 > vnet1 and vnet2 > vnet3 and vnet2 > vnet4 and vnet2 > vnet5:
+                y[i] = 2
+            elif vnet3 > vnet1 and vnet3 > vnet2 and vnet3 > vnet4 and vnet3 > vnet5:
+                y[i] = 3
+            elif vnet4 > vnet1 and vnet4 > vnet3 and vnet4 > vnet2 and vnet4 > vnet5:
+                y[i] = 4
+            else:
+                y[i] = 5
+        d = self.Test_labels
+        # print(y)
+        print("test accuarcy is   ", self.confusion(y, d))
+
+        return
+
+    def test_sample(self, X):
+
+        self.k = 22
+        self.ReadWeight()
+
+        self.ReadCenroids()
+        self.init_sigma()
+        cur_hidden_Gaussian = self.calc_Gaussian(X)
+        vnet1 = np.sum(self.Weight_out[0, 0:self.k] * cur_hidden_Gaussian)
+        vnet2 = np.sum(self.Weight_out[1, 0:self.k] * cur_hidden_Gaussian)
+        vnet3 = np.sum(self.Weight_out[2, 0:self.k] * cur_hidden_Gaussian)
+        vnet4 = np.sum(self.Weight_out[3, 0:self.k] * cur_hidden_Gaussian)
+        vnet5 = np.sum(self.Weight_out[4, 0:self.k] * cur_hidden_Gaussian)
+        if vnet1 > vnet2 and vnet1 > vnet3 and vnet1 > vnet4 and vnet1 > vnet5:
+            label = 1
+        elif vnet2 > vnet1 and vnet2 > vnet3 and vnet2 > vnet4 and vnet2 > vnet5:
+            label = 2
+        elif vnet3 > vnet1 and vnet3 > vnet2 and vnet3 > vnet4 and vnet3 > vnet5:
+            label = 3
+        elif vnet4 > vnet1 and vnet4 > vnet3 and vnet4 > vnet2 and vnet4 > vnet5:
+            label = 4
+        else:
+            label = 5
+        return label
+
+    def load_data(self):
+        mydata = np.genfromtxt("IrisDataset.txt", delimiter=",")
+        # print(mydata)
+        self.my_data = mydata
+
+    def save_Weight(self):
+        with open('RBF_Weights.txt', 'w') as outfile:
+            for data_slice in self.Weight_out:
+                np.savetxt(outfile, data_slice, fmt='%-7.10f')
+
+    def save_Cenroids(self):
+        with open('Centroids.txt', 'w') as outfile:
+            for data_slice in self.hidden_neurons:
+                np.savetxt(outfile, data_slice, fmt='%-7.5f')
+
+    def ReadWeight(self):
+        self.Weight_out = np.loadtxt('RBF_Weights.txt')
+        self.Weight_out = self.Weight_out.reshape(5, self.k)
+
+    def ReadCenroids(self):
+        self.hidden_neurons = np.loadtxt('Centroids.txt')
+        ## k=22
+        self.hidden_neurons = self.hidden_neurons.reshape(22, 25)
+
 
 class MultiLayerNN:
-    def __init__(self, no_layers, no_neu, b, lr, no_ep, af, sc, mse, bool):
+    def __init__(self, no_layers=2, no_neu="15", b=0, lr=.3, no_ep=200, af="Sigmoid", sc="MSE", mse=.01, bool=0):
         # System Variables
         self.TestingData = []
         self.CrossData = []
@@ -72,23 +396,24 @@ class MultiLayerNN:
         self.OutError4 = np.zeros((25, 1))
         self.OutError5 = np.zeros((25, 1))
         self.Epochs = []
-        self.Start()
 
     def Start(self):
         # Start Read the images
         self.Read("/Users/mac/PycharmProjects/NNProject/Training/", "/Users/mac/PycharmProjects/NNProject/TestFiles/")
         # Normalize the Image data set
+        self.WriteTrainingData()
         self.Normalize()
+        with open('TestingAfterNorm.txt', 'w') as outfile:
+            np.savetxt(outfile, self.TestingData, fmt='%-7.2f')
+        # save the training data for found PCA
         # Calculate PCA Number
         self.calculate_pca()
         # initialize the weight matrix and bias list vector
         self.initialize()
         # Train The Network
-        # self.train()
+        self.train()
         # Save the weights into file
-        # self.WriteWeightAndBias()
-        # Reading Weights and Bias
-        self.ReadWeightAndBias()
+        self.WriteWeightAndBias()
         # Testing phase
         self.TestData()
         cv.waitKey(0)
@@ -107,6 +432,17 @@ class MultiLayerNN:
             return 1 / (1 + math.exp(vnet * -1))
         else:
             return (1 - math.exp(vnet * -1)) / (1 + math.exp(vnet * -1))
+
+    def WriteTrainingData(self):
+        with open('TrainingDataBeforePca.txt', 'w') as outfile:
+            np.savetxt(outfile, self.TrainingData, fmt='%-7.2f')
+
+    def ReadTrainingData(self):
+        self.TrainingData = np.loadtxt('TrainingDataBeforePca.txt')
+        if self.CrossBool == 1:
+            self.TrainingData = self.TrainingData.reshape((20, 2500))
+        else:
+            self.TrainingData = self.TrainingData.reshape((25, 2500))
 
     def train(self):
         preAcc = -1
@@ -271,7 +607,6 @@ class MultiLayerNN:
                 if Epoch_Number == self.no_epochs - 1:
                     break
             Epoch_Number += 1
-        self.WriteWeightAndBias()
 
     def WriteWeightAndBias(self):
         with open('Weights.txt', 'w') as outfile:
@@ -293,6 +628,7 @@ class MultiLayerNN:
         acc = 0
         for i in range(5):
             acc += con[i, i]
+        print(con)
         return (acc / len(real)) * 100
 
     def test(self, X):
@@ -348,7 +684,7 @@ class MultiLayerNN:
             predicted.append(self.test(self.TestingData[i]))
         pre = np.array(predicted)
         print("Accuracy : ", self.confusion(pre, self.TestingLabels))
-        print("# Hidden Layers : ",self.NumberOfLayers)
+        print("# Hidden Layers : ", self.NumberOfLayers)
         print("# Neurons : ", self.NumberOfNeurons[:])
         ep = np.array(self.Epochs)
         epoch = np.zeros((ep.shape[0], 1))
@@ -369,15 +705,19 @@ class MultiLayerNN:
 
     def Normalize(self):
         # Standardizing the features
-        self.TrainingData = StandardScaler().fit_transform(self.TrainingData)
-        self.TestingData = StandardScaler().fit_transform(self.TestingData)
+        scaler = StandardScaler().fit(self.TrainingData)
+        self.TrainingData = scaler.transform(self.TrainingData)
+        self.TestingData = scaler.transform(self.TestingData)
         if self.CrossBool == 1:
-            self.CrossData = StandardScaler().fit_transform(self.CrossData)
+            self.CrossData = scaler.transform(self.CrossData)
+        # with open('TestingDataBeforePCA.txt', 'w') as outfile:
+        # np.savetxt(outfile, self.TestingData, fmt='%-7.2f')
         #for i in range(0, 2500):
         #    mean = np.mean(self.TrainingData[:, i])
         #    max = np.max(self.TrainingData[:, i])
-        #    self.TrainingData[:, i] -= mean
-        #    self.TrainingData[:, i] /= max
+           # self.TrainingData[:, i] -= mean
+            #self.TrainingData[:, i] /= 255
+            #self.TestingData[:, i] /= 255
 
     def Read(self, train_path, test_path):
         # Reading Training Dat
@@ -467,10 +807,10 @@ class MultiLayerNN:
             count += 1
 
 
-class InputForm(QWidget):
+class TrainForm(QWidget):
     def __init__(self):
-        super(InputForm, self).__init__()
-        self.title = 'Neural Networks Project'
+        super(TrainForm, self).__init__()
+        self.title = 'Training'
         self.left = 10
         self.top = 10
         self.width = 500
@@ -481,7 +821,8 @@ class InputForm(QWidget):
         self.label4 = QLabel("Enter Number of Epochs :", self)
         self.label5 = QLabel("Choose The Activation Function Type :", self)
         self.label6 = QLabel("Choose The Stopping Criteria :", self)
-        self.label7 = QLabel("( In Case Of MSE Selected ) Enter MSE Threshold :", self)
+        self.label7 = QLabel("Enter MSE Threshold :", self)
+        self.label8 = QLabel("Choose a Classifier", self)
         self.CheckBox = QCheckBox("Bias", self)
         self.textboxHiddenLayers = QLineEdit(self)
         self.textboxNeuronsPerLayer = QLineEdit(self)
@@ -492,6 +833,7 @@ class InputForm(QWidget):
         self.button.setToolTip('Run The Program')
         self.ActivationFunctionType = QComboBox(self)
         self.StoppingCriteria = QComboBox(self)
+        self.Classifier = QComboBox(self)
         # input variables
         self.bias = 0
         self.b = 0
@@ -508,82 +850,290 @@ class InputForm(QWidget):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
 
-        self.label1.setAlignment(Qt.AlignCenter)
-        self.label1.move(10, 20)
+        self.label8.setAlignment(Qt.AlignLeft)
+        self.label8.move(10, 0)
 
-        self.label2.setAlignment(Qt.AlignCenter)
-        self.label2.move(10, 60)
+        self.label1.setAlignment(Qt.AlignLeft)
+        self.label1.move(10, 40)
 
-        self.label3.setAlignment(Qt.AlignCenter)
-        self.label3.move(10, 100)
+        self.label2.setAlignment(Qt.AlignLeft)
+        self.label2.move(10, 80)
 
-        self.label4.setAlignment(Qt.AlignCenter)
-        self.label4.move(10, 140)
+        self.label3.setAlignment(Qt.AlignLeft)
+        self.label3.move(10, 120)
 
-        self.label5.setAlignment(Qt.AlignCenter)
-        self.label5.move(10, 220)
+        self.label4.setAlignment(Qt.AlignLeft)
+        self.label4.move(10, 240)
 
-        self.label6.setAlignment(Qt.AlignCenter)
-        self.label6.move(10, 260)
+        self.label5.setAlignment(Qt.AlignLeft)
+        self.label5.move(10, 200)
 
-        self.label7.setAlignment(Qt.AlignCenter)
-        self.label7.move(30, 300)
+        self.label6.setAlignment(Qt.AlignLeft)
+        self.label6.move(10, 280)
 
-        self.CheckBox.move(10, 180)
+        self.label7.setAlignment(Qt.AlignLeft)
+        self.label7.move(30, 320)
 
-        self.textboxHiddenLayers.move(220, 20)
+        self.CheckBox.move(10, 160)
+
+        self.textboxHiddenLayers.move(220, 40)
         self.textboxHiddenLayers.resize(40, 20)
 
-        self.textboxNeuronsPerLayer.move(310, 60)
+        self.textboxNeuronsPerLayer.move(310, 80)
         self.textboxNeuronsPerLayer.resize(40, 20)
 
-        self.textboxLr.move(180,100)
+        self.textboxLr.move(180, 120)
         self.textboxLr.resize(40, 20)
 
-        self.textboxEp.move(180, 140)
+        self.textboxEp.move(180, 240)
         self.textboxEp.resize(40, 20)
 
-        self.button.move(200, 400)
+        self.button.move(200, 420)
         self.button.clicked.connect(self.on_click)
 
-        self.ActivationFunctionType.move(250, 220)
+        self.ActivationFunctionType.move(250, 200)
         self.ActivationFunctionType.addItem("Sigmoid")
         self.ActivationFunctionType.addItem("Hyperbolic")
 
-        self.StoppingCriteria.move(250, 260)
+        self.StoppingCriteria.move(250, 280)
         self.StoppingCriteria.addItem("Fix The Number Of Epochs")
         self.StoppingCriteria.addItem("MSE")
         self.StoppingCriteria.addItem("Cross Validation")
 
+        self.Classifier.move(200, 5)
+        self.Classifier.addItem("MLP")
+        self.Classifier.addItem("RBF")
+        self.Classifier.currentTextChanged.connect(self.on_combobox_changed)
         self.textboxMSE.resize(40, 20)
-        self.textboxMSE.move(350, 300)
+        self.textboxMSE.move(350, 350)
         self.show()
 
     @pyqtSlot()
     def on_click(self):
-        self.NumberOfLayers = self.textboxHiddenLayers.text()
-        self.NumberOfNeurons = self.textboxNeuronsPerLayer.text()
-        self.learning_rate = self.textboxLr.text()
-        self.no_epochs = self.textboxEp.text()
-        if self.CheckBox.isChecked():
-            self.bias = 1
-        else:
-            self.bias = 0
-        self.ActivationFunction = self.ActivationFunctionType.currentText()
-        if self.StoppingCriteria.currentText() == "MSE":
-            self.StoppingCondition = "MSE"
-            self.MSEThreshold = self.textboxMSE.text()
-        elif self.StoppingCriteria.currentText() == "Cross Validation":
-            self.StoppingCondition = "Cross Validation"
-            self.b = 1
-        else:
-            self.StoppingCondition = "Fix The Number Of Epochs"
+        if self.Classifier.currentText() == "MLP":
+            self.NumberOfLayers = self.textboxHiddenLayers.text()
+            self.NumberOfNeurons = self.textboxNeuronsPerLayer.text()
+            self.learning_rate = self.textboxLr.text()
+            self.no_epochs = self.textboxEp.text()
+            if self.CheckBox.isChecked():
+                self.bias = 1
+            else:
+                self.bias = 0
+            self.ActivationFunction = self.ActivationFunctionType.currentText()
+            if self.StoppingCriteria.currentText() == "MSE":
+                self.StoppingCondition = "MSE"
+                self.MSEThreshold = self.textboxMSE.text()
+            elif self.StoppingCriteria.currentText() == "Cross Validation":
+                self.StoppingCondition = "Cross Validation"
+                self.b = 1
+            else:
+                self.StoppingCondition = "Fix The Number Of Epochs"
 
-        MyClass = MultiLayerNN(self.NumberOfLayers, self.NumberOfNeurons, self.bias, self.learning_rate,
+            MyClass = MultiLayerNN(self.NumberOfLayers, self.NumberOfNeurons, self.bias, self.learning_rate,
                                self.no_epochs, self.ActivationFunction, self.StoppingCondition, self.MSEThreshold,self.b)
+            MyClass.Start()
+        else:
+            self.NumberOfNeurons = self.textboxNeuronsPerLayer.text()
+            self.learning_rate = self.textboxLr.text()
+            self.no_epochs = self.textboxEp.text()
+            self.MSEThreshold = self.textboxMSE.text()
+            MyClass = RBF(22, 200)
+            MyClass.test()
+        self.hide()
+
+    def on_combobox_changed(self):
+        if self.Classifier.currentText() == "MLP":
+            self.label2.setText("Enter Number Of Neurons in Each Hidden Layer :")
+            self.textboxHiddenLayers.show()
+            self.label1.show()
+            self.CheckBox.show()
+            self.label5.show()
+            self.label6.show()
+            self.label7.show()
+            self.ActivationFunctionType.show()
+            self.StoppingCriteria.show()
+            self.textboxMSE.show()
+        else:
+            self.label2.setText("Enter Number Of Hidden Neurons :")
+            self.textboxHiddenLayers.hide()
+            self.label1.hide()
+            self.CheckBox.hide()
+            self.label5.hide()
+            self.label6.hide()
+            self.label7.hide()
+            self.ActivationFunctionType.hide()
+            self.StoppingCriteria.hide()
+            self.textboxMSE.hide()
+
+
+class TestForm(QWidget):
+    def __init__(self):
+        super(TestForm, self).__init__()
+        self.title = 'Testing'
+        self.left = 10
+        self.top = 10
+        self.width = 800
+        self.height = 300
+        self.test_path = "/Users/mac/PycharmProjects/NNProject/Testing/"
+        self.Classifier = QComboBox(self)
+        self.label1 = QLabel("Choose a Classifier", self)
+        self.label2 = QLabel("Choose The Original Image", self)
+        self.label3 = QLabel("Choose The Colored Image", self)
+        self.OriginalImagesCB = QComboBox(self)
+        self.ColoredImagesCB = QComboBox(self)
+        self.DisplayImages()
+        self.CrossBool = 0
+        self.Button1 = QPushButton('Test Model', self)
+        self.Button1.setToolTip('Test The given Image')
+        self.initUI()
+
+    def initUI(self):
+        self.Classifier.move(200, 5)
+        self.Classifier.addItem("MLP")
+        self.Classifier.addItem("RBF")
+
+        self.label1.setAlignment(Qt.AlignLeft)
+        self.label1.move(10, 5)
+
+        self.label2.setAlignment(Qt.AlignLeft)
+        self.label2.move(10, 50)
+
+        self.label3.setAlignment(Qt.AlignLeft)
+        self.label3.move(10, 100)
+
+        self.OriginalImagesCB.move(200, 50)
+        self.ColoredImagesCB.move(200, 100)
+
+        self.Button1.move(200, 150)
+        self.Button1.clicked.connect(self.on_click)
+
+    def DisplayImages(self):
+        count = 0
+        for each in glob(self.test_path + "*"):
+            if count % 2 == 0:
+                original_path = each
+            else:
+                self.ColoredImagesCB.addItem(each.split("/")[-1])
+                self.OriginalImagesCB.addItem(original_path.split("/")[-1])
+            count += 1
+
+    def on_click(self):
+        labels = []
+        if self.Classifier.currentText() == "MLP":
+            self.MyClass = MultiLayerNN()
+            self.MyClass.ReadTrainingData()
+            scaler = StandardScaler().fit(self.MyClass.TrainingData)
+            self.MyClass.TrainingData = scaler.transform(self.MyClass.TrainingData)
+            pca = PCA(25)
+            pca.fit(self.MyClass.TrainingData)
+            plt.plot(np.cumsum(pca.explained_variance_ratio_))
+            plt.xlabel('number of components')
+            plt.ylabel('cumulative explained variance')
+            plt.show()
+            im = cv.imread(self.test_path+self.OriginalImagesCB.currentText())
+            all, pos = seg.segment(self.test_path+self.OriginalImagesCB.currentText(), self.test_path+self.ColoredImagesCB.currentText())
+            self.MyClass.ReadWeightAndBias()
+            for image in all:
+                image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+                image = cv.resize(image, (50, 50))
+                image = np.reshape(image, 2500)
+                image = scaler.transform([image])
+                image = pca.transform(image)
+                ret = self.MyClass.test(image)
+                if ret == 1:
+                    labels.append("Cat")
+                elif ret == 2:
+                    labels.append("Laptop")
+                elif ret == 3:
+                    labels.append("Apple")
+                elif ret == 4:
+                    labels.append("Car")
+                else:
+                    labels.append("Helicopter")
+            for j in range(len(pos)):  # iterate over objects
+                # pass each of all list to the classifier
+                cv.rectangle(im, (pos[j][0], pos[j][2]), (pos[j][1], pos[j][3]), (255, 0, 0), 3)
+                font = cv.FONT_HERSHEY_SIMPLEX
+                label = str(labels[j])
+                cv.putText(im, label, (pos[j][0], pos[j][2]), font, 0.7, (0, 255, 0), 2, cv.LINE_AA)
+            cv.imshow("test", im)
+        else:
+            self.MyClass = RBF(22, 200)
+            self.MyClass.ReadTrainingData()
+            scaler = StandardScaler().fit(self.MyClass.TrainingData)
+            self.MyClass.TrainingData = scaler.transform(self.MyClass.TrainingData)
+            pca = PCA(25)
+            pca.fit(self.MyClass.TrainingData)
+            plt.plot(np.cumsum(pca.explained_variance_ratio_))
+            plt.xlabel('number of components')
+            plt.ylabel('cumulative explained variance')
+            plt.show()
+            im = cv.imread(self.test_path + self.OriginalImagesCB.currentText())
+            all, pos = seg.segment(self.test_path + self.OriginalImagesCB.currentText(),
+                                   self.test_path + self.ColoredImagesCB.currentText())
+            for image in all:
+                image = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+                image = cv.resize(image, (50, 50))
+                image = np.reshape(image, 2500)
+                image = scaler.transform([image])
+                image = pca.transform(image)
+                # image now contain the 25 features
+                ret = # ismail function :D
+                if ret == 1:
+                    labels.append("Cat")
+                elif ret == 2:
+                    labels.append("Laptop")
+                elif ret == 3:
+                    labels.append("Apple")
+                elif ret == 4:
+                    labels.append("Car")
+                else:
+                    labels.append("Helicopter")
+            for j in range(len(pos)):  # iterate over objects
+                # pass each of all list to the classifier
+                cv.rectangle(im, (pos[j][0], pos[j][2]), (pos[j][1], pos[j][3]), (255, 0, 0), 3)
+                font = cv.FONT_HERSHEY_SIMPLEX
+                label = str(labels[j])
+                cv.putText(im, label, (pos[j][0], pos[j][2]), font, 0.7, (0, 255, 0), 2, cv.LINE_AA)
+            cv.imshow("test", im)
+
+
+class MainForm(QWidget):
+    def __init__(self):
+        super(MainForm, self).__init__()
+        self.title = 'Neural Network Project'
+        self.left = 10
+        self.top = 10
+        self.width = 400
+        self.height = 200
+        self.TrainButton = QPushButton('Train', self)
+        self.TrainButton.setToolTip('Train The Model')
+        self.TestButton = QPushButton('Test', self)
+        self.TestButton.setToolTip('Test The Model')
+        self.initUI()
+
+    def initUI(self):
+        self.TrainButton.move(200, 100)
+        self.TrainButton.clicked.connect(self.Train_on_click)
+        self.TestButton.move(100, 100)
+        self.TestButton.clicked.connect(self.Test_on_click)
+        self.setWindowTitle(self.title)
+        self.setGeometry(self.left, self.top, self.width, self.height)
+        self.show()
+
+    @pyqtSlot()
+    def Train_on_click(self):
+        self.hide()
+        self.FT = TrainForm()
+        self.FT.show()
+
+    def Test_on_click(self):
+        self.hide()
+        self.FT = TestForm()
+        self.FT.show()
 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    ex = InputForm()
+    ex = MainForm()
     sys.exit(app.exec_())
