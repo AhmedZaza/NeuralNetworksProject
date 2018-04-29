@@ -86,9 +86,9 @@ def segment(orig_img, colored):
 
         if ratio > 0.2:
             crop_img = img2[ymin:ymin + ymax - ymin + 1, xmin:xmin + xmax - xmin + 1]  # Crop img[y: y + h, x: x + w]
-            crop_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
-            crop_img = cv2.resize(crop_img, (50, 50))
-            crop_img = np.reshape(crop_img, 2500)
+            #crop_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
+            #crop_img = cv2.resize(crop_img, (50, 50))
+            #crop_img = np.reshape(crop_img, 2500)
             objectsList.append(crop_img)
             objectsPos.append((xmin, xmax, ymin, ymax))
     return objectsList, objectsPos
